@@ -529,7 +529,7 @@ router.post("/userLogin", function (req, res) { return __awaiter(_this, void 0, 
                 return [4 /*yield*/, Auth.regenerateToken(existingCred)];
             case 3:
                 newAccessToken = _a.sent();
-                successful = false;
+                successful = true;
                 uuid = existingCred.uuid;
                 accesstoken = newAccessToken;
                 _a.label = 4;
