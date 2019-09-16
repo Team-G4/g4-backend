@@ -46,6 +46,8 @@ var bcrypt_1 = __importDefault(require("bcrypt"));
 var crypto_1 = require("crypto");
 var util_1 = require("util");
 var cryptoRandomBytesAsync = util_1.promisify(crypto_1.randomBytes);
+// Hard limit on username length
+var USERNAME_LENGTH_LIMIT = 20;
 // Set up the database
 var db = new pg_1.Client({
     connectionString: process.env.DATABASE_URL,
@@ -140,6 +142,8 @@ var Auth = /** @class */ (function () {
                 switch (_a.label) {
                     case 0:
                         _a.trys.push([0, 3, , 4]);
+                        if (username.length > USERNAME_LENGTH_LIMIT)
+                            return [2 /*return*/, null];
                         hash = bcrypt_1.default.hash(password, 10);
                         accessToken = Auth.generateToken();
                         return [4 /*yield*/, Promise.all([hash, accessToken])];
@@ -259,6 +263,8 @@ var Leaderboard = /** @class */ (function () {
     Leaderboard.verifyScore = function (current, next) {
         if (next.score < 0)
             return false; // Block negative scores
+        else if (next.score > 999999)
+            return false; // Block huge™ scores
         if (!current) { // This is the first score in this mode
             return next.score <= 1; // Allow only score 0 or 1
         }
@@ -283,7 +289,7 @@ var Leaderboard = /** @class */ (function () {
                                 username,
                                 mode,
                                 score.score, score.deathCount,
-                                Date.now()
+                                Date.now().toString()
                             ])];
                     case 1:
                         _a.sent();
@@ -324,7 +330,7 @@ var Leaderboard = /** @class */ (function () {
                     case 3: return [4 /*yield*/, db.query("UPDATE scores SET score = $2, deathCount = $3, timestamp = $4 WHERE username = $1", [
                             username,
                             score.score, score.deathCount,
-                            Date.now()
+                            Date.now().toString()
                         ])];
                     case 4:
                         _a.sent();
@@ -464,6 +470,40 @@ router.get("usernameAvailable", function (req, res) { return __awaiter(_this, vo
 }); });
 // POST /userRegister
 router.post("userRegister", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+    var successful, uuid, accessToken, existingCred, cred;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                successful = false;
+                uuid = "";
+                accessToken = "";
+                if (!("username" in req.body &&
+                    "password" in req.body &&
+                    req.body.username.length <= USERNAME_LENGTH_LIMIT)) return [3 /*break*/, 3];
+                return [4 /*yield*/, Auth.getCredentials(req.body.username)];
+            case 1:
+                existingCred = _a.sent();
+                if (!!existingCred) return [3 /*break*/, 3];
+                return [4 /*yield*/, Auth.createCredentials(req.body.username, req.body.password)];
+            case 2:
+                cred = _a.sent();
+                if (cred) {
+                    uuid = cred.uuid;
+                    accessToken = cred.accessToken;
+                }
+                _a.label = 3;
+            case 3:
+                RequestUtil.respond(res, {
+                    successful: successful,
+                    uuid: uuid,
+                    accessToken: accessToken
+                });
+                return [2 /*return*/];
+        }
+    });
+}); });
+// POST /userLogin
+router.post("userLogin", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
     var successful, uuid, accessToken, existingCred;
     return __generator(this, function (_a) {
         switch (_a.label) {
@@ -472,12 +512,14 @@ router.post("userRegister", function (req, res) { return __awaiter(_this, void 0
                 uuid = "";
                 accessToken = "";
                 if (!("username" in req.body &&
-                    "password" in req.body)) return [3 /*break*/, 2];
+                    "password" in req.body &&
+                    req.body.username.length <= USERNAME_LENGTH_LIMIT)) return [3 /*break*/, 2];
                 return [4 /*yield*/, Auth.getCredentials(req.body.username)];
             case 1:
                 existingCred = _a.sent();
-                if (!existingCred) {
-                    //create credentials...
+                if (existingCred) {
+                    uuid = existingCred.uuid;
+                    accessToken = existingCred.accessToken;
                 }
                 _a.label = 2;
             case 2:

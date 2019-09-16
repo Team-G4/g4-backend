@@ -9,6 +9,9 @@ import {promisify} from "util"
 
 const cryptoRandomBytesAsync = promisify(randomBytes)
 
+// Hard limit on username length
+const USERNAME_LENGTH_LIMIT = 20
+
 // Set up the database
 let db = new Client({
     connectionString: process.env.DATABASE_URL,
@@ -88,6 +91,8 @@ class Auth {
      */
     static async createCredentials(username: string, password: string): Promise<Credentials> {
         try {
+            if (username.length > USERNAME_LENGTH_LIMIT) return null
+
             let hash = bcrypt.hash(password, 10)
             let accessToken = Auth.generateToken()
             await Promise.all([hash, accessToken])
@@ -164,7 +169,7 @@ type Score = {
     score: number,
     deathCount: number,
 
-    timestamp: number
+    timestamp: string
 }
 type ScoreNugget = {
     score: number,
@@ -207,6 +212,7 @@ class Leaderboard {
      */
     static verifyScore(current: Score, next: ScoreNugget): boolean {
         if (next.score < 0) return false // Block negative scores
+        else if (next.score > 999999) return false // Block huge™ scores
         
         if (!current) { // This is the first score in this mode
             return next.score <= 1 // Allow only score 0 or 1
@@ -231,7 +237,7 @@ class Leaderboard {
                     username,
                     mode,
                     score.score, score.deathCount,
-                    Date.now()
+                    Date.now().toString()
                 ]
             )
 
@@ -265,7 +271,7 @@ class Leaderboard {
                 [
                     username,
                     score.score, score.deathCount,
-                    Date.now()
+                    Date.now().toString()
                 ]
             )
 
@@ -438,12 +444,50 @@ router.post(
 
         if (
             "username" in req.body &&
-            "password" in req.body
+            "password" in req.body &&
+            req.body.username.length <= USERNAME_LENGTH_LIMIT
         ) {
             let existingCred = await Auth.getCredentials(req.body.username)
 
             if (!existingCred) {
-                //create credentials...
+                let cred = await Auth.createCredentials(
+                    req.body.username,
+                    req.body.password
+                )
+
+                if (cred) {
+                    uuid = cred.uuid
+                    accessToken = cred.accessToken
+                }
+            }
+        }
+
+        RequestUtil.respond(res, {
+            successful,
+            uuid,
+            accessToken
+        })
+    }
+)
+
+// POST /userLogin
+router.post(
+    "userLogin",
+    async (req, res) => {
+        let successful = false
+        let uuid = ""
+        let accessToken = ""
+
+        if (
+            "username" in req.body &&
+            "password" in req.body &&
+            req.body.username.length <= USERNAME_LENGTH_LIMIT
+        ) {
+            let existingCred = await Auth.getCredentials(req.body.username)
+
+            if (existingCred) {
+                uuid = existingCred.uuid
+                accessToken = existingCred.accessToken
             }
         }
 

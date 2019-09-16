@@ -32,6 +32,7 @@ Checks the validity of the credentials and provides a new access token if they a
 
 #### Returns (JSON)
 * `successful` - Boolean - `true` if the credentials are valid, `false` otherwise
+* `uuid` - String - the player's UUID
 * `accessToken` - String - the new access token
 
 ## Leaderboard
