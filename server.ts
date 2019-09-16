@@ -13,8 +13,9 @@ const cryptoRandomBytesAsync = promisify(randomBytes)
 const USERNAME_LENGTH_LIMIT = 20
 
 // Set up the database
+let connectionString = process.env.DATABASE_URL
 let db = new Client({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: connectionString,
     ssl: true
 })
 
@@ -33,7 +34,7 @@ type Credentials = {
     username: string,
     hash: string,
 
-    accessToken: string
+    accesstoken: string
 }
 
 class Auth {
@@ -93,13 +94,12 @@ class Auth {
         try {
             if (username.length > USERNAME_LENGTH_LIMIT) return null
 
-            let hash = bcrypt.hash(password, 10)
-            let accessToken = Auth.generateToken()
-            await Promise.all([hash, accessToken])
+            let hash = await bcrypt.hash(password, 10)
+            let accesstoken = await Auth.generateToken()
 
             let query = await db.query(
-                "INSERT INTO players (username, hash, accessToken) VALUES ($1, $2, $3) RETURNING *",
-                [username, hash, accessToken]
+                "INSERT INTO players (username, hash, accesstoken) VALUES ($1, $2, $3) RETURNING *",
+                [username, hash, accesstoken]
             )
 
             return query.rows[0]
@@ -127,7 +127,7 @@ class Auth {
      */
     static verifyAccessToken(cred: Credentials, token: string): boolean {
         try {
-            return cred.accessToken === token
+            return cred.accesstoken === token
         } catch(err) {
             console.error(`Error while verifying the access token: ${err}`)
             return false
@@ -143,7 +143,7 @@ class Auth {
             let newToken = await Auth.generateToken()
 
             let query = await db.query(
-                "UPDATE players SET accessToken = $2 WHERE uuid = $1",
+                "UPDATE players SET accesstoken = $2 WHERE uuid = $1",
                 [cred.uuid, newToken]
             )
 
@@ -164,16 +164,16 @@ type Score = {
 
     username: string,
 
-    gameMode: string,
+    gamemode: string,
 
     score: number,
-    deathCount: number,
+    deathcount: number,
 
     timestamp: string
 }
 type ScoreNugget = {
     score: number,
-    deathCount: number
+    deathcount: number
 }
 
 class Leaderboard {
@@ -193,7 +193,7 @@ class Leaderboard {
             if (!Leaderboard.knownGameModes.includes(mode)) return null
 
             let query = await db.query(
-                "SELECT * FROM scores WHERE username = $1, gameMode = $2",
+                "SELECT * FROM scores WHERE username = $1 AND gamemode = $2",
                 [username, mode]
             )
 
@@ -232,11 +232,11 @@ class Leaderboard {
             if (!Leaderboard.knownGameModes.includes(mode)) return false
 
             await db.query(
-                "INSERT INTO scores (username, gameMode, score, deathCount, timestamp) VALUES ($1, $2, $3, $4, $5)",
+                "INSERT INTO scores (username, gamemode, score, deathcount, timestamp) VALUES ($1, $2, $3, $4, $5)",
                 [
                     username,
                     mode,
-                    score.score, score.deathCount,
+                    score.score, score.deathcount,
                     Date.now().toString()
                 ]
             )
@@ -267,10 +267,10 @@ class Leaderboard {
             )
 
             await db.query(
-                "UPDATE scores SET score = $2, deathCount = $3, timestamp = $4 WHERE username = $1",
+                "UPDATE scores SET score = $2, deathcount = $3, timestamp = $4 WHERE username = $1",
                 [
                     username,
-                    score.score, score.deathCount,
+                    score.score, score.deathcount,
                     Date.now().toString()
                 ]
             )
@@ -292,7 +292,7 @@ class Leaderboard {
             if (!Leaderboard.knownGameModes.includes(mode)) return []
 
             let query = await db.query(
-                "SELECT * FROM scores WHERE gameMode = $1 ORDER BY score DESC LIMIT $2",
+                "SELECT * FROM scores WHERE gamemode = $1 ORDER BY score DESC LIMIT $2",
                 [mode, limit]
             )
 
@@ -313,7 +313,7 @@ type AuthRequestCallback = (
 // The structure of the auth request body
 type AuthRequestBody = {
     uuid: string,
-    accessToken: string,
+    accesstoken: string,
 
     data: any
 }
@@ -323,7 +323,7 @@ type AuthRequestResponse = {
     authError: boolean,
     authErrorString: string,
 
-    accessToken: string,
+    accesstoken: string,
 
     successful: boolean,
     data: any
@@ -341,7 +341,7 @@ class RequestUtil {
     static respondAuthRequest(
         response: Express.Response,
 
-        accessToken: string,
+        accesstoken: string,
 
         successful: boolean,
         data: any
@@ -350,7 +350,7 @@ class RequestUtil {
             response,
             {
                 authError: false,
-                accessToken,
+                accesstoken,
                 successful, data
             }
         )
@@ -381,19 +381,19 @@ class RequestUtil {
         // Check whether the auth data is complete
         if (!("uuid" in bodyData))
             return RequestUtil.respondAuthRequestErr(response, "User UUID not provided.")
-        else if (!("accessToken" in bodyData))
+        else if (!("accesstoken" in bodyData))
             return RequestUtil.respondAuthRequestErr(response, "User access token not provided.")
 
         // Check whether the user exists and the access token is valid
         let cred = await Auth.getCredentialsFromUUID(bodyData.uuid)
         if (!cred)
             return RequestUtil.respondAuthRequestErr(response, "User UUID is invalid.")
-        let tokensMatch = Auth.verifyAccessToken(cred, bodyData.accessToken)
+        let tokensMatch = Auth.verifyAccessToken(cred, bodyData.accesstoken)
         if (!tokensMatch)
             return RequestUtil.respondAuthRequestErr(response, "Access token is invalid.")
         
         // Generate a new access token
-        let newAccessToken = await Auth.regenerateToken(cred)
+        let newaccesstoken = await Auth.regenerateToken(cred)
 
         // Get the data for the request, if none, supply an empty object
         // The callback will handle that
@@ -409,7 +409,7 @@ class RequestUtil {
         // Respond with the new access token and data
         return RequestUtil.respondAuthRequest(
             response,
-            newAccessToken,
+            newaccesstoken,
             successful, callbackData
         )
     }
@@ -418,7 +418,7 @@ class RequestUtil {
 //// ENDPOINTS ////
 // GET /usernameAvailable
 router.get(
-    "usernameAvailable",
+    "/usernameAvailable",
     async (req, res) => {
         let nameAvailable = false
 
@@ -436,11 +436,11 @@ router.get(
 
 // POST /userRegister
 router.post(
-    "userRegister",
+    "/userRegister",
     async (req, res) => {
         let successful = false
         let uuid = ""
-        let accessToken = ""
+        let accesstoken = ""
 
         if (
             "username" in req.body &&
@@ -456,8 +456,9 @@ router.post(
                 )
 
                 if (cred) {
+                    successful = true
                     uuid = cred.uuid
-                    accessToken = cred.accessToken
+                    accesstoken = cred.accesstoken
                 }
             }
         }
@@ -465,18 +466,18 @@ router.post(
         RequestUtil.respond(res, {
             successful,
             uuid,
-            accessToken
+            accesstoken
         })
     }
 )
 
 // POST /userLogin
 router.post(
-    "userLogin",
+    "/userLogin",
     async (req, res) => {
         let successful = false
         let uuid = ""
-        let accessToken = ""
+        let accesstoken = ""
 
         if (
             "username" in req.body &&
@@ -486,22 +487,29 @@ router.post(
             let existingCred = await Auth.getCredentials(req.body.username)
 
             if (existingCred) {
-                uuid = existingCred.uuid
-                accessToken = existingCred.accessToken
+                let matches = await Auth.verifyCredentials(existingCred, req.body.password)
+
+                if (matches) {
+                    let newAccessToken = await Auth.regenerateToken(existingCred)
+    
+                    successful = false
+                    uuid = existingCred.uuid
+                    accesstoken = newAccessToken
+                }
             }
         }
 
         RequestUtil.respond(res, {
             successful,
             uuid,
-            accessToken
+            accesstoken
         })
     }
 )
 
 // GET /scores
 router.get(
-    "scores",
+    "/scores",
     async (req, res) => {
         let mode: KnownGameMode, limit = 50
         let output = []
@@ -523,7 +531,7 @@ router.get(
 
 // POST /score
 router.post(
-    "score",
+    "/score",
     async (req, res) => {
         RequestUtil.processAuthRequest(
             req, res,
@@ -531,11 +539,11 @@ router.post(
                 if (
                     "mode" in data &&
                     "score" in data &&
-                    "deathCount" in data
+                    "deathcount" in data
                 ) {
                     let scoreNugget: ScoreNugget = {
                         score: +data.score,
-                        deathCount: +data.deathCount
+                        deathcount: +data.deathcount
                     }
 
                     let op = await Leaderboard.setPlayerScore(
@@ -554,9 +562,33 @@ router.post(
     }
 )
 
+// Utility function for resetting the database
+async function resetDatabase() {
+    await db.query(
+        `DROP TABLE players;
+        DROP TABLE scores;
+        CREATE TABLE players (
+            uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            username varchar,
+            hash varchar,
+            accesstoken varchar
+        );
+        CREATE TABLE scores (
+            uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            username varchar,
+            gamemode varchar,
+            score integer,
+            deathcount integer,
+            timestamp varchar
+        );`
+    )
+}
+
 // Connect!
-db.connect().then(() => {
+db.connect().then(async () => {
     console.log("Connected to the database.")
+
+    await resetDatabase()
 
     expressApp.listen(
         process.env.PORT,

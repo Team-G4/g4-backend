@@ -49,8 +49,9 @@ var cryptoRandomBytesAsync = util_1.promisify(crypto_1.randomBytes);
 // Hard limit on username length
 var USERNAME_LENGTH_LIMIT = 20;
 // Set up the database
+var connectionString = process.env.DATABASE_URL;
 var db = new pg_1.Client({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: connectionString,
     ssl: true
 });
 // Set up Express
@@ -137,27 +138,28 @@ var Auth = /** @class */ (function () {
      */
     Auth.createCredentials = function (username, password) {
         return __awaiter(this, void 0, void 0, function () {
-            var hash, accessToken, query, err_3;
+            var hash, accesstoken, query, err_3;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        _a.trys.push([0, 3, , 4]);
+                        _a.trys.push([0, 4, , 5]);
                         if (username.length > USERNAME_LENGTH_LIMIT)
                             return [2 /*return*/, null];
-                        hash = bcrypt_1.default.hash(password, 10);
-                        accessToken = Auth.generateToken();
-                        return [4 /*yield*/, Promise.all([hash, accessToken])];
+                        return [4 /*yield*/, bcrypt_1.default.hash(password, 10)];
                     case 1:
-                        _a.sent();
-                        return [4 /*yield*/, db.query("INSERT INTO players (username, hash, accessToken) VALUES ($1, $2, $3) RETURNING *", [username, hash, accessToken])];
+                        hash = _a.sent();
+                        return [4 /*yield*/, Auth.generateToken()];
                     case 2:
+                        accesstoken = _a.sent();
+                        return [4 /*yield*/, db.query("INSERT INTO players (username, hash, accesstoken) VALUES ($1, $2, $3) RETURNING *", [username, hash, accesstoken])];
+                    case 3:
                         query = _a.sent();
                         return [2 /*return*/, query.rows[0]];
-                    case 3:
+                    case 4:
                         err_3 = _a.sent();
                         console.error("Error while creating credentials: " + err_3);
                         return [2 /*return*/, null];
-                    case 4: return [2 /*return*/];
+                    case 5: return [2 /*return*/];
                 }
             });
         });
@@ -187,7 +189,7 @@ var Auth = /** @class */ (function () {
      */
     Auth.verifyAccessToken = function (cred, token) {
         try {
-            return cred.accessToken === token;
+            return cred.accesstoken === token;
         }
         catch (err) {
             console.error("Error while verifying the access token: " + err);
@@ -208,7 +210,7 @@ var Auth = /** @class */ (function () {
                         return [4 /*yield*/, Auth.generateToken()];
                     case 1:
                         newToken = _a.sent();
-                        return [4 /*yield*/, db.query("UPDATE players SET accessToken = $2 WHERE uuid = $1", [cred.uuid, newToken])];
+                        return [4 /*yield*/, db.query("UPDATE players SET accesstoken = $2 WHERE uuid = $1", [cred.uuid, newToken])];
                     case 2:
                         query = _a.sent();
                         return [2 /*return*/, newToken];
@@ -240,7 +242,7 @@ var Leaderboard = /** @class */ (function () {
                         _a.trys.push([0, 2, , 3]);
                         if (!Leaderboard.knownGameModes.includes(mode))
                             return [2 /*return*/, null];
-                        return [4 /*yield*/, db.query("SELECT * FROM scores WHERE username = $1, gameMode = $2", [username, mode])];
+                        return [4 /*yield*/, db.query("SELECT * FROM scores WHERE username = $1 AND gamemode = $2", [username, mode])];
                     case 1:
                         query = _a.sent();
                         if (!query.rowCount)
@@ -285,10 +287,10 @@ var Leaderboard = /** @class */ (function () {
                         _a.trys.push([0, 2, , 3]);
                         if (!Leaderboard.knownGameModes.includes(mode))
                             return [2 /*return*/, false];
-                        return [4 /*yield*/, db.query("INSERT INTO scores (username, gameMode, score, deathCount, timestamp) VALUES ($1, $2, $3, $4, $5)", [
+                        return [4 /*yield*/, db.query("INSERT INTO scores (username, gamemode, score, deathcount, timestamp) VALUES ($1, $2, $3, $4, $5)", [
                                 username,
                                 mode,
-                                score.score, score.deathCount,
+                                score.score, score.deathcount,
                                 Date.now().toString()
                             ])];
                     case 1:
@@ -327,9 +329,9 @@ var Leaderboard = /** @class */ (function () {
                         if (!!currentScore) return [3 /*break*/, 3];
                         return [4 /*yield*/, Leaderboard.createPlayerScore(username, mode, score)];
                     case 2: return [2 /*return*/, _a.sent()];
-                    case 3: return [4 /*yield*/, db.query("UPDATE scores SET score = $2, deathCount = $3, timestamp = $4 WHERE username = $1", [
+                    case 3: return [4 /*yield*/, db.query("UPDATE scores SET score = $2, deathcount = $3, timestamp = $4 WHERE username = $1", [
                             username,
-                            score.score, score.deathCount,
+                            score.score, score.deathcount,
                             Date.now().toString()
                         ])];
                     case 4:
@@ -358,7 +360,7 @@ var Leaderboard = /** @class */ (function () {
                         _a.trys.push([0, 2, , 3]);
                         if (!Leaderboard.knownGameModes.includes(mode))
                             return [2 /*return*/, []];
-                        return [4 /*yield*/, db.query("SELECT * FROM scores WHERE gameMode = $1 ORDER BY score DESC LIMIT $2", [mode, limit])];
+                        return [4 /*yield*/, db.query("SELECT * FROM scores WHERE gamemode = $1 ORDER BY score DESC LIMIT $2", [mode, limit])];
                     case 1:
                         query = _a.sent();
                         return [2 /*return*/, query.rows];
@@ -385,10 +387,10 @@ var RequestUtil = /** @class */ (function () {
         response.append("Access-Control-Allow-Origin", "*"); // Allow CORS
         response.json(data);
     };
-    RequestUtil.respondAuthRequest = function (response, accessToken, successful, data) {
+    RequestUtil.respondAuthRequest = function (response, accesstoken, successful, data) {
         RequestUtil.respond(response, {
             authError: false,
-            accessToken: accessToken,
+            accesstoken: accesstoken,
             successful: successful, data: data
         });
     };
@@ -400,7 +402,7 @@ var RequestUtil = /** @class */ (function () {
     };
     RequestUtil.processAuthRequest = function (request, response, processCallback) {
         return __awaiter(this, void 0, void 0, function () {
-            var bodyData, cred, tokensMatch, newAccessToken, requestData, callbackData, successful;
+            var bodyData, cred, tokensMatch, newaccesstoken, requestData, callbackData, successful;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -408,7 +410,7 @@ var RequestUtil = /** @class */ (function () {
                         // Check whether the auth data is complete
                         if (!("uuid" in bodyData))
                             return [2 /*return*/, RequestUtil.respondAuthRequestErr(response, "User UUID not provided.")];
-                        else if (!("accessToken" in bodyData))
+                        else if (!("accesstoken" in bodyData))
                             return [2 /*return*/, RequestUtil.respondAuthRequestErr(response, "User access token not provided.")
                                 // Check whether the user exists and the access token is valid
                             ];
@@ -417,7 +419,7 @@ var RequestUtil = /** @class */ (function () {
                         cred = _a.sent();
                         if (!cred)
                             return [2 /*return*/, RequestUtil.respondAuthRequestErr(response, "User UUID is invalid.")];
-                        tokensMatch = Auth.verifyAccessToken(cred, bodyData.accessToken);
+                        tokensMatch = Auth.verifyAccessToken(cred, bodyData.accesstoken);
                         if (!tokensMatch)
                             return [2 /*return*/, RequestUtil.respondAuthRequestErr(response, "Access token is invalid.")
                                 // Generate a new access token
@@ -427,7 +429,7 @@ var RequestUtil = /** @class */ (function () {
                             // The callback will handle that
                         ];
                     case 2:
-                        newAccessToken = _a.sent();
+                        newaccesstoken = _a.sent();
                         requestData = bodyData.data;
                         if (!requestData)
                             requestData = {};
@@ -438,7 +440,7 @@ var RequestUtil = /** @class */ (function () {
                         callbackData = _a.sent();
                         successful = callbackData !== null;
                         // Respond with the new access token and data
-                        return [2 /*return*/, RequestUtil.respondAuthRequest(response, newAccessToken, successful, callbackData)];
+                        return [2 /*return*/, RequestUtil.respondAuthRequest(response, newaccesstoken, successful, callbackData)];
                 }
             });
         });
@@ -447,7 +449,7 @@ var RequestUtil = /** @class */ (function () {
 }());
 //// ENDPOINTS ////
 // GET /usernameAvailable
-router.get("usernameAvailable", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+router.get("/usernameAvailable", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
     var nameAvailable, cred;
     return __generator(this, function (_a) {
         switch (_a.label) {
@@ -469,14 +471,14 @@ router.get("usernameAvailable", function (req, res) { return __awaiter(_this, vo
     });
 }); });
 // POST /userRegister
-router.post("userRegister", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-    var successful, uuid, accessToken, existingCred, cred;
+router.post("/userRegister", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+    var successful, uuid, accesstoken, existingCred, cred;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
                 successful = false;
                 uuid = "";
-                accessToken = "";
+                accesstoken = "";
                 if (!("username" in req.body &&
                     "password" in req.body &&
                     req.body.username.length <= USERNAME_LENGTH_LIMIT)) return [3 /*break*/, 3];
@@ -488,52 +490,60 @@ router.post("userRegister", function (req, res) { return __awaiter(_this, void 0
             case 2:
                 cred = _a.sent();
                 if (cred) {
+                    successful = true;
                     uuid = cred.uuid;
-                    accessToken = cred.accessToken;
+                    accesstoken = cred.accesstoken;
                 }
                 _a.label = 3;
             case 3:
                 RequestUtil.respond(res, {
                     successful: successful,
                     uuid: uuid,
-                    accessToken: accessToken
+                    accesstoken: accesstoken
                 });
                 return [2 /*return*/];
         }
     });
 }); });
 // POST /userLogin
-router.post("userLogin", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-    var successful, uuid, accessToken, existingCred;
+router.post("/userLogin", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+    var successful, uuid, accesstoken, existingCred, matches, newAccessToken;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
                 successful = false;
                 uuid = "";
-                accessToken = "";
+                accesstoken = "";
                 if (!("username" in req.body &&
                     "password" in req.body &&
-                    req.body.username.length <= USERNAME_LENGTH_LIMIT)) return [3 /*break*/, 2];
+                    req.body.username.length <= USERNAME_LENGTH_LIMIT)) return [3 /*break*/, 4];
                 return [4 /*yield*/, Auth.getCredentials(req.body.username)];
             case 1:
                 existingCred = _a.sent();
-                if (existingCred) {
-                    uuid = existingCred.uuid;
-                    accessToken = existingCred.accessToken;
-                }
-                _a.label = 2;
+                if (!existingCred) return [3 /*break*/, 4];
+                return [4 /*yield*/, Auth.verifyCredentials(existingCred, req.body.password)];
             case 2:
+                matches = _a.sent();
+                if (!matches) return [3 /*break*/, 4];
+                return [4 /*yield*/, Auth.regenerateToken(existingCred)];
+            case 3:
+                newAccessToken = _a.sent();
+                successful = false;
+                uuid = existingCred.uuid;
+                accesstoken = newAccessToken;
+                _a.label = 4;
+            case 4:
                 RequestUtil.respond(res, {
                     successful: successful,
                     uuid: uuid,
-                    accessToken: accessToken
+                    accesstoken: accesstoken
                 });
                 return [2 /*return*/];
         }
     });
 }); });
 // GET /scores
-router.get("scores", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+router.get("/scores", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
     var mode, limit, output, scores;
     return __generator(this, function (_a) {
         switch (_a.label) {
@@ -559,7 +569,7 @@ router.get("scores", function (req, res) { return __awaiter(_this, void 0, void 
     });
 }); });
 // POST /score
-router.post("score", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+router.post("/score", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
     var _this = this;
     return __generator(this, function (_a) {
         RequestUtil.processAuthRequest(req, res, function (cred, data) { return __awaiter(_this, void 0, void 0, function () {
@@ -569,10 +579,10 @@ router.post("score", function (req, res) { return __awaiter(_this, void 0, void 
                     case 0:
                         if (!("mode" in data &&
                             "score" in data &&
-                            "deathCount" in data)) return [3 /*break*/, 2];
+                            "deathcount" in data)) return [3 /*break*/, 2];
                         scoreNugget = {
                             score: +data.score,
-                            deathCount: +data.deathCount
+                            deathcount: +data.deathcount
                         };
                         return [4 /*yield*/, Leaderboard.setPlayerScore(cred.username, data.mode, scoreNugget)];
                     case 1:
@@ -587,10 +597,32 @@ router.post("score", function (req, res) { return __awaiter(_this, void 0, void 
         return [2 /*return*/];
     });
 }); });
-// Connect!
-db.connect().then(function () {
-    console.log("Connected to the database.");
-    expressApp.listen(process.env.PORT, function () {
-        console.log("Listening to requests from port " + process.env.PORT + ".");
+// Utility function for resetting the database
+function resetDatabase() {
+    return __awaiter(this, void 0, void 0, function () {
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, db.query("DROP TABLE players;\n        DROP TABLE scores;\n        CREATE TABLE players (\n            uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n            username varchar,\n            hash varchar,\n            accesstoken varchar\n        );\n        CREATE TABLE scores (\n            uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n            username varchar,\n            gamemode varchar,\n            score integer,\n            deathcount integer,\n            timestamp varchar\n        );")];
+                case 1:
+                    _a.sent();
+                    return [2 /*return*/];
+            }
+        });
     });
-});
+}
+// Connect!
+db.connect().then(function () { return __awaiter(_this, void 0, void 0, function () {
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                console.log("Connected to the database.");
+                return [4 /*yield*/, resetDatabase()];
+            case 1:
+                _a.sent();
+                expressApp.listen(process.env.PORT, function () {
+                    console.log("Listening to requests from port " + process.env.PORT + ".");
+                });
+                return [2 /*return*/];
+        }
+    });
+}); });
