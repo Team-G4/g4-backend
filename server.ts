@@ -493,7 +493,7 @@ router.post(
                 if (matches) {
                     let newAccessToken = await Auth.regenerateToken(existingCred)
     
-                    successful = false
+                    successful = true
                     uuid = existingCred.uuid
                     accesstoken = newAccessToken
                 }
