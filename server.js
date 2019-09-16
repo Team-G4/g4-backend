@@ -42,6 +42,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var pg_1 = require("pg");
 var express_1 = __importDefault(require("express"));
 var express_promise_router_1 = __importDefault(require("express-promise-router"));
+var cors_1 = __importDefault(require("cors"));
 var bcrypt_1 = __importDefault(require("bcrypt"));
 var crypto_1 = require("crypto");
 var util_1 = require("util");
@@ -57,6 +58,7 @@ var db = new pg_1.Client({
 // Set up Express
 var expressApp = express_1.default();
 expressApp.use(express_1.default.json());
+expressApp.use(cors_1.default());
 // Use express-promise-router to use async/await in callbacks
 var router = express_promise_router_1.default();
 expressApp.use(router);
@@ -384,7 +386,6 @@ var RequestUtil = /** @class */ (function () {
     function RequestUtil() {
     }
     RequestUtil.respond = function (response, data) {
-        response.append("Access-Control-Allow-Origin", "*"); // Allow CORS
         response.json(data);
     };
     RequestUtil.respondAuthRequest = function (response, accesstoken, successful, data) {

@@ -1,6 +1,7 @@
 import {Client} from "pg"
 import Express, { Router } from "express"
 import PromiseRouter from "express-promise-router"
+import cors from "cors"
 
 import bcrypt from "bcrypt"
 
@@ -22,6 +23,7 @@ let db = new Client({
 // Set up Express
 let expressApp = Express()
 expressApp.use(Express.json())
+expressApp.use(cors())
 
 // Use express-promise-router to use async/await in callbacks
 let router = PromiseRouter()
@@ -334,7 +336,6 @@ class RequestUtil {
         response: Express.Response,
         data: any
     ) {
-        response.append("Access-Control-Allow-Origin", "*") // Allow CORS
         response.json(data)
     }
 
