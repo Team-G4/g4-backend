@@ -1,0 +1,8 @@
+{
+    "compilerOptions": {
+        "watch": true,
+        "esModuleInterop": true,
+
+        "target": "es5"
+    }
+}
