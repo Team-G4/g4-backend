@@ -508,6 +508,26 @@ router.post(
     }
 )
 
+// POST /userLogout
+router.post(
+    "/userLogout",
+    async (req, res) => {
+        if (
+            "uuid" in req.body
+        ) {
+            let existingCred = await Auth.getCredentialsFromUUID(req.body.uuid)
+
+            if (existingCred) {
+                await Auth.regenerateToken(existingCred)
+            }
+        }
+
+        RequestUtil.respond(res, {
+            successful: true
+        })
+    }
+)
+
 // GET /scores
 router.get(
     "/scores",

@@ -35,6 +35,15 @@ Checks the validity of the credentials and provides a new access token if they a
 * `uuid` - String - the player's UUID
 * `accessToken` - String - the new access token
 
+### `POST` /userLogout
+Changes the user's access token without returning it back to prevent further actions on the account.
+
+#### Request parameters (JSON)
+* `uuid` - user ID
+
+#### Returns (JSON)
+* `successful` - Boolean - always `true`
+
 ## Leaderboard
 
 ### `GET` /scores

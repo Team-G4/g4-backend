@@ -543,6 +543,29 @@ router.post("/userLogin", function (req, res) { return __awaiter(_this, void 0, 
         }
     });
 }); });
+// POST /userLogout
+router.post("/userLogout", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+    var existingCred;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                if (!("uuid" in req.body)) return [3 /*break*/, 3];
+                return [4 /*yield*/, Auth.getCredentialsFromUUID(req.body.uuid)];
+            case 1:
+                existingCred = _a.sent();
+                if (!existingCred) return [3 /*break*/, 3];
+                return [4 /*yield*/, Auth.regenerateToken(existingCred)];
+            case 2:
+                _a.sent();
+                _a.label = 3;
+            case 3:
+                RequestUtil.respond(res, {
+                    successful: true
+                });
+                return [2 /*return*/];
+        }
+    });
+}); });
 // GET /scores
 router.get("/scores", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
     var mode, limit, output, scores;
