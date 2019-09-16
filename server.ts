@@ -232,6 +232,7 @@ class Leaderboard {
     static async createPlayerScore(username: string, mode: KnownGameMode, score: ScoreNugget): Promise<boolean> {
         try {
             if (!Leaderboard.knownGameModes.includes(mode)) return false
+            if (score.score > 2) return false
 
             await db.query(
                 "INSERT INTO scores (username, gamemode, score, deathcount, timestamp) VALUES ($1, $2, $3, $4, $5)",
@@ -269,11 +270,12 @@ class Leaderboard {
             )
 
             await db.query(
-                "UPDATE scores SET score = $2, deathcount = $3, timestamp = $4 WHERE username = $1",
+                "UPDATE scores SET score = $2, deathcount = $3, timestamp = $4 WHERE username = $1 AND gamemode = $5",
                 [
                     username,
                     score.score, score.deathcount,
-                    Date.now().toString()
+                    Date.now().toString(),
+                    mode
                 ]
             )
 
@@ -609,7 +611,7 @@ async function resetDatabase() {
 db.connect().then(async () => {
     console.log("Connected to the database.")
 
-    await resetDatabase()
+    //await resetDatabase()
 
     expressApp.listen(
         process.env.PORT,

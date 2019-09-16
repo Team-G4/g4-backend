@@ -21,7 +21,7 @@ Registers a user in the database.
 #### Returns (JSON)
 * `successful` - Boolean - `true` if the operation was successful and the account has been created, `false` if not
 * `uuid` - String - the player's UUID
-* `accessToken` - String - the access token required to perform write operations
+* `accesstoken` - String - the access token required to perform write operations
 
 ### `POST` /userLogin
 Checks the validity of the credentials and provides a new access token if they are valid.
@@ -33,7 +33,7 @@ Checks the validity of the credentials and provides a new access token if they a
 #### Returns (JSON)
 * `successful` - Boolean - `true` if the credentials are valid, `false` otherwise
 * `uuid` - String - the player's UUID
-* `accessToken` - String - the new access token
+* `accesstoken` - String - the new access token
 
 ### `POST` /userLogout
 Changes the user's access token without returning it back to prevent further actions on the account.
@@ -61,14 +61,14 @@ Sets a player's score.
 
 #### Request parameters (JSON)
 * `uuid` - the player's UUID
-* `accessToken` - the player's access token
+* `accesstoken` - the player's access token
 * `data` - an object with properties:
     * `mode` - game mode
     * `score` - score
-    * `deathCount` - death count
+    * `deathcount` - death count
 
 #### Returns (JSON)
 * `authError` - Boolean - `true` if an auth-related error occured, `false` otherwise
 * `authErrorString` - String - present if `authError = true`
-* `accessToken` - String - the new access token
+* `accesstoken` - String - the new access token
 * `successful` - Boolean - indicates whether the operation was successful
