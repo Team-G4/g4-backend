@@ -321,6 +321,24 @@ class Leaderboard {
             return []
         }
     }
+
+    /**
+     * Retrieves a player's scores.
+     * @param username Player username
+     */
+    static async getPlayerScores(username: string): Promise<Score[]> {
+        try {
+            let query = await db.query(
+                "SELECT * FROM scores WHERE username = $1",
+                [username]
+            )
+
+            return query.rows
+        } catch(err) {
+            console.error(`Error while getting the scores: ${err}`)
+            return []
+        }
+    }
 }
 
 // The type of the callback used by RequestUtil.processAuthRequest
@@ -597,6 +615,22 @@ router.post(
                 return null
             }
         )
+    }
+)
+
+// GET /playerScores
+router.get(
+    "/playerScores",
+    async (req, res) => {
+        let output = []
+
+        if ("username" in req.query) {
+            output = await Leaderboard.getPlayerScores(req.query.username)
+        }
+
+        RequestUtil.respond(res, {
+            scores: output
+        })
     }
 )
 

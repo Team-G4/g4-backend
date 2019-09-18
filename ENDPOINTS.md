@@ -72,3 +72,11 @@ Sets a player's score.
 * `authErrorString` - String - present if `authError = true`
 * `accesstoken` - String - the new access token
 * `successful` - Boolean - indicates whether the operation was successful
+
+### `GET` /playerScores
+
+#### Query parameters
+* `username` - the player's username
+
+#### Returns (JSON)
+* `scores` - Array - an array of scores

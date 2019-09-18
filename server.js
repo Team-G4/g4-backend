@@ -389,6 +389,30 @@ var Leaderboard = /** @class */ (function () {
             });
         });
     };
+    /**
+     * Retrieves a player's scores.
+     * @param username Player username
+     */
+    Leaderboard.getPlayerScores = function (username) {
+        return __awaiter(this, void 0, void 0, function () {
+            var query, err_9;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        _a.trys.push([0, 2, , 3]);
+                        return [4 /*yield*/, db.query("SELECT * FROM scores WHERE username = $1", [username])];
+                    case 1:
+                        query = _a.sent();
+                        return [2 /*return*/, query.rows];
+                    case 2:
+                        err_9 = _a.sent();
+                        console.error("Error while getting the scores: " + err_9);
+                        return [2 /*return*/, []];
+                    case 3: return [2 /*return*/];
+                }
+            });
+        });
+    };
     Leaderboard.knownGameModes = [
         "easy", "normal", "hard",
         "hell", "hades", "denise",
@@ -633,6 +657,26 @@ router.post("/score", function (req, res) { return __awaiter(_this, void 0, void
             });
         }); });
         return [2 /*return*/];
+    });
+}); });
+// GET /playerScores
+router.get("/playerScores", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+    var output;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                output = [];
+                if (!("username" in req.query)) return [3 /*break*/, 2];
+                return [4 /*yield*/, Leaderboard.getPlayerScores(req.query.username)];
+            case 1:
+                output = _a.sent();
+                _a.label = 2;
+            case 2:
+                RequestUtil.respond(res, {
+                    scores: output
+                });
+                return [2 /*return*/];
+        }
     });
 }); });
 // Utility function for resetting the database
