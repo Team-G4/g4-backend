@@ -94,7 +94,7 @@ class Auth {
      */
     static async createCredentials(username: string, password: string): Promise<Credentials> {
         try {
-            if (username.length > USERNAME_LENGTH_LIMIT) return null
+            if (!Auth.verifyUsername(username)) return null
 
             let hash = await bcrypt.hash(password, 10)
             let accesstoken = await Auth.generateToken()
@@ -154,6 +154,21 @@ class Auth {
             console.error(`Error while regenerating the access token: ${err}`)
             return null
         }
+    }
+
+    /**
+     * Checks whether the username is a-ok.
+     * @param username Player username
+     */
+    static verifyUsername(username: string): boolean {
+        if (
+            username.length > USERNAME_LENGTH_LIMIT ||
+            username.length < 3 ||
+            !/^[a-zA-Z0-9_]+$/.test(username)
+        )
+            return false
+
+        return true
     }
 }
 
@@ -448,7 +463,7 @@ router.post(
         if (
             "username" in req.body &&
             "password" in req.body &&
-            req.body.username.length <= USERNAME_LENGTH_LIMIT
+            Auth.verifyUsername(req.body.username)
         ) {
             let existingCred = await Auth.getCredentials(req.body.username)
 

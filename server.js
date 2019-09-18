@@ -145,7 +145,7 @@ var Auth = /** @class */ (function () {
                 switch (_a.label) {
                     case 0:
                         _a.trys.push([0, 4, , 5]);
-                        if (username.length > USERNAME_LENGTH_LIMIT)
+                        if (!Auth.verifyUsername(username))
                             return [2 /*return*/, null];
                         return [4 /*yield*/, bcrypt_1.default.hash(password, 10)];
                     case 1:
@@ -225,6 +225,17 @@ var Auth = /** @class */ (function () {
             });
         });
     };
+    /**
+     * Checks whether the username is a-ok.
+     * @param username Player username
+     */
+    Auth.verifyUsername = function (username) {
+        if (username.length > USERNAME_LENGTH_LIMIT ||
+            username.length < 3 ||
+            !/^[a-zA-Z0-9_]+$/.test(username))
+            return false;
+        return true;
+    };
     return Auth;
 }());
 var Leaderboard = /** @class */ (function () {
@@ -289,6 +300,8 @@ var Leaderboard = /** @class */ (function () {
                         _a.trys.push([0, 2, , 3]);
                         if (!Leaderboard.knownGameModes.includes(mode))
                             return [2 /*return*/, false];
+                        if (score.score > 2)
+                            return [2 /*return*/, false];
                         return [4 /*yield*/, db.query("INSERT INTO scores (username, gamemode, score, deathcount, timestamp) VALUES ($1, $2, $3, $4, $5)", [
                                 username,
                                 mode,
@@ -331,10 +344,11 @@ var Leaderboard = /** @class */ (function () {
                         if (!!currentScore) return [3 /*break*/, 3];
                         return [4 /*yield*/, Leaderboard.createPlayerScore(username, mode, score)];
                     case 2: return [2 /*return*/, _a.sent()];
-                    case 3: return [4 /*yield*/, db.query("UPDATE scores SET score = $2, deathcount = $3, timestamp = $4 WHERE username = $1", [
+                    case 3: return [4 /*yield*/, db.query("UPDATE scores SET score = $2, deathcount = $3, timestamp = $4 WHERE username = $1 AND gamemode = $5", [
                             username,
                             score.score, score.deathcount,
-                            Date.now().toString()
+                            Date.now().toString(),
+                            mode
                         ])];
                     case 4:
                         _a.sent();
@@ -482,7 +496,7 @@ router.post("/userRegister", function (req, res) { return __awaiter(_this, void 
                 accesstoken = "";
                 if (!("username" in req.body &&
                     "password" in req.body &&
-                    req.body.username.length <= USERNAME_LENGTH_LIMIT)) return [3 /*break*/, 3];
+                    Auth.verifyUsername(req.body.username))) return [3 /*break*/, 3];
                 return [4 /*yield*/, Auth.getCredentials(req.body.username)];
             case 1:
                 existingCred = _a.sent();
@@ -637,16 +651,11 @@ function resetDatabase() {
 // Connect!
 db.connect().then(function () { return __awaiter(_this, void 0, void 0, function () {
     return __generator(this, function (_a) {
-        switch (_a.label) {
-            case 0:
-                console.log("Connected to the database.");
-                return [4 /*yield*/, resetDatabase()];
-            case 1:
-                _a.sent();
-                expressApp.listen(process.env.PORT, function () {
-                    console.log("Listening to requests from port " + process.env.PORT + ".");
-                });
-                return [2 /*return*/];
-        }
+        console.log("Connected to the database.");
+        //await resetDatabase()
+        expressApp.listen(process.env.PORT, function () {
+            console.log("Listening to requests from port " + process.env.PORT + ".");
+        });
+        return [2 /*return*/];
     });
 }); });
