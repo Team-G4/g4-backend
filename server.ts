@@ -305,14 +305,17 @@ class Leaderboard {
      * Retrieves a list of top scores for a given mode.
      * @param mode Game mode
      * @param limit No. of scores to return
+     * @param showLegit Include "Verified Legit™" scores
      */
-    static async getModeScores(mode: KnownGameMode, limit: number): Promise<Score[]> {
+    static async getModeScores(mode: KnownGameMode, limit: number, showLegit: boolean): Promise<Score[]> {
         try {
             if (!Leaderboard.knownGameModes.includes(mode)) return []
 
+            let legit = showLegit ? 1 : 0
+
             let query = await db.query(
-                "SELECT * FROM scores WHERE gamemode = $1 ORDER BY score DESC LIMIT $2",
-                [mode, limit]
+                "SELECT * FROM scores WHERE gamemode = $1 AND verified = $3 ORDER BY score DESC LIMIT $2",
+                [mode, limit, legit]
             )
 
             return query.rows
@@ -567,14 +570,15 @@ router.post(
 router.get(
     "/scores",
     async (req, res) => {
-        let mode: KnownGameMode, limit = 50
+        let mode: KnownGameMode, limit = 50, legit = 0
         let output = []
 
         if ("mode" in req.query) mode = req.query.mode
         if ("limit" in req.query) limit = +req.query.limit
+        if ("legit" in req.query) legit = +req.query.legit
 
         if (mode && limit) {
-            let scores = await Leaderboard.getModeScores(mode, limit)
+            let scores = await Leaderboard.getModeScores(mode, limit, !!legit)
 
             output = scores
         }
@@ -651,7 +655,8 @@ async function resetDatabase() {
             gamemode varchar,
             score integer,
             deathcount integer,
-            timestamp varchar
+            timestamp varchar,
+            verified integer DEFAULT 0
         );`
     )
 }

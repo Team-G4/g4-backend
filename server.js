@@ -366,17 +366,19 @@ var Leaderboard = /** @class */ (function () {
      * Retrieves a list of top scores for a given mode.
      * @param mode Game mode
      * @param limit No. of scores to return
+     * @param showLegit Include "Verified Legit™" scores
      */
-    Leaderboard.getModeScores = function (mode, limit) {
+    Leaderboard.getModeScores = function (mode, limit, showLegit) {
         return __awaiter(this, void 0, void 0, function () {
-            var query, err_8;
+            var legit, query, err_8;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         _a.trys.push([0, 2, , 3]);
                         if (!Leaderboard.knownGameModes.includes(mode))
                             return [2 /*return*/, []];
-                        return [4 /*yield*/, db.query("SELECT * FROM scores WHERE gamemode = $1 ORDER BY score DESC LIMIT $2", [mode, limit])];
+                        legit = showLegit ? 1 : 0;
+                        return [4 /*yield*/, db.query("SELECT * FROM scores WHERE gamemode = $1 AND verified = $3 ORDER BY score DESC LIMIT $2", [mode, limit, legit])];
                     case 1:
                         query = _a.sent();
                         return [2 /*return*/, query.rows];
@@ -606,18 +608,20 @@ router.post("/userLogout", function (req, res) { return __awaiter(_this, void 0,
 }); });
 // GET /scores
 router.get("/scores", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-    var mode, limit, output, scores;
+    var mode, limit, legit, output, scores;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
-                limit = 50;
+                limit = 50, legit = 0;
                 output = [];
                 if ("mode" in req.query)
                     mode = req.query.mode;
                 if ("limit" in req.query)
                     limit = +req.query.limit;
+                if ("legit" in req.query)
+                    legit = +req.query.legit;
                 if (!(mode && limit)) return [3 /*break*/, 2];
-                return [4 /*yield*/, Leaderboard.getModeScores(mode, limit)];
+                return [4 /*yield*/, Leaderboard.getModeScores(mode, limit, !!legit)];
             case 1:
                 scores = _a.sent();
                 output = scores;
@@ -684,7 +688,7 @@ function resetDatabase() {
     return __awaiter(this, void 0, void 0, function () {
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, db.query("DROP TABLE players;\n        DROP TABLE scores;\n        CREATE TABLE players (\n            uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n            username varchar,\n            hash varchar,\n            accesstoken varchar\n        );\n        CREATE TABLE scores (\n            uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n            username varchar,\n            gamemode varchar,\n            score integer,\n            deathcount integer,\n            timestamp varchar\n        );")];
+                case 0: return [4 /*yield*/, db.query("DROP TABLE players;\n        DROP TABLE scores;\n        CREATE TABLE players (\n            uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n            username varchar,\n            hash varchar,\n            accesstoken varchar\n        );\n        CREATE TABLE scores (\n            uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n            username varchar,\n            gamemode varchar,\n            score integer,\n            deathcount integer,\n            timestamp varchar,\n            verified integer DEFAULT 0\n        );")];
                 case 1:
                     _a.sent();
                     return [2 /*return*/];
