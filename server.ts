@@ -311,11 +311,11 @@ class Leaderboard {
         try {
             if (!Leaderboard.knownGameModes.includes(mode)) return []
 
-            let legit = showLegit ? 1 : 0
+            let legit = showLegit ? "" : "AND verified = 0"
 
             let query = await db.query(
-                "SELECT * FROM scores WHERE gamemode = $1 AND verified = $3 ORDER BY score DESC LIMIT $2",
-                [mode, limit, legit]
+                `SELECT * FROM scores WHERE gamemode = $1 ${legit} ORDER BY score DESC LIMIT $2`,
+                [mode, limit]
             )
 
             return query.rows

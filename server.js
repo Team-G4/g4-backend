@@ -377,8 +377,8 @@ var Leaderboard = /** @class */ (function () {
                         _a.trys.push([0, 2, , 3]);
                         if (!Leaderboard.knownGameModes.includes(mode))
                             return [2 /*return*/, []];
-                        legit = showLegit ? 1 : 0;
-                        return [4 /*yield*/, db.query("SELECT * FROM scores WHERE gamemode = $1 AND verified = $3 ORDER BY score DESC LIMIT $2", [mode, limit, legit])];
+                        legit = showLegit ? "" : "AND verified = 0";
+                        return [4 /*yield*/, db.query("SELECT * FROM scores WHERE gamemode = $1 " + legit + " ORDER BY score DESC LIMIT $2", [mode, limit])];
                     case 1:
                         query = _a.sent();
                         return [2 /*return*/, query.rows];
