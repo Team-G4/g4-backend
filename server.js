@@ -1,4 +1,15 @@
 "use strict";
+var __assign = (this && this.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     return new (P || (P = Promise))(function (resolve, reject) {
         function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
@@ -238,9 +249,106 @@ var Auth = /** @class */ (function () {
     };
     return Auth;
 }());
+var Users = /** @class */ (function () {
+    function Users() {
+    }
+    Users.getUserInfo = function (username) {
+        return __awaiter(this, void 0, void 0, function () {
+            var query, player, err_5;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        _a.trys.push([0, 2, , 3]);
+                        return [4 /*yield*/, db.query("SELECT * FROM players WHERE username = $1", [username])];
+                    case 1:
+                        query = _a.sent();
+                        player = query.rows[0];
+                        return [2 /*return*/, {
+                                teammember: player.teammember
+                            }];
+                    case 2:
+                        err_5 = _a.sent();
+                        console.error("Error while accessing user info: " + err_5);
+                        return [2 /*return*/, null];
+                    case 3: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    return Users;
+}());
 var Leaderboard = /** @class */ (function () {
     function Leaderboard() {
     }
+    Leaderboard.isPlayerFrostTaco = function (username) {
+        var tacoNames = [
+            "ForgotMyPwd",
+            "FrostTaco",
+            "scintiIla4evr"
+        ];
+        return tacoNames.includes(username);
+    };
+    /**
+     * Retrieves a list of achievements
+     * @param username Player's username
+     */
+    Leaderboard.getPlayerAchievements = function (username) {
+        return __awaiter(this, void 0, void 0, function () {
+            var query, err_6;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        _a.trys.push([0, 2, , 3]);
+                        return [4 /*yield*/, db.query("SELECT * FROM players WHERE username = $1", [username])];
+                    case 1:
+                        query = _a.sent();
+                        return [2 /*return*/, JSON.parse(query.rows[0].achievements)];
+                    case 2:
+                        err_6 = _a.sent();
+                        console.error("Error while retrieving the achievements: " + err_6);
+                        return [2 /*return*/, null];
+                    case 3: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Adds an achievement
+     * @param username Player's username
+     * @param achievement Achievement ID
+     */
+    Leaderboard.awardPlayerAchievement = function (username, achievement) {
+        return __awaiter(this, void 0, void 0, function () {
+            var query, achievements, err_7;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        _a.trys.push([0, 5, , 6]);
+                        return [4 /*yield*/, db.query("SELECT * FROM players WHERE username = $1", [username])];
+                    case 1:
+                        query = _a.sent();
+                        achievements = JSON.parse(query.rows[0].achievements);
+                        if (!achievements.includes(achievement)) return [3 /*break*/, 2];
+                        return [2 /*return*/, false];
+                    case 2:
+                        achievements.push(achievement);
+                        if (Leaderboard.isPlayerFrostTaco(username)) {
+                            achievements = [];
+                        }
+                        return [4 /*yield*/, db.query("UPDATE players SET achievements = $1 WHERE username = $2", [JSON.stringify(achievements), username])];
+                    case 3:
+                        _a.sent();
+                        return [2 /*return*/, true];
+                    case 4: return [3 /*break*/, 6];
+                    case 5:
+                        err_7 = _a.sent();
+                        console.error("Error while adding the achievement: " + err_7);
+                        return [2 /*return*/, null];
+                    case 6: return [2 /*return*/];
+                }
+            });
+        });
+    };
     /**
      * Retrieves the player's score.
      * @param username Player's username
@@ -248,24 +356,27 @@ var Leaderboard = /** @class */ (function () {
      */
     Leaderboard.getPlayerScore = function (username, mode) {
         return __awaiter(this, void 0, void 0, function () {
-            var query, err_5;
+            var query, playerInfo, err_8;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        _a.trys.push([0, 2, , 3]);
+                        _a.trys.push([0, 3, , 4]);
                         if (!Leaderboard.knownGameModes.includes(mode))
                             return [2 /*return*/, null];
                         return [4 /*yield*/, db.query("SELECT * FROM scores WHERE username = $1 AND gamemode = $2", [username, mode])];
                     case 1:
                         query = _a.sent();
+                        return [4 /*yield*/, Users.getUserInfo(username)];
+                    case 2:
+                        playerInfo = _a.sent();
                         if (!query.rowCount)
                             return [2 /*return*/, null];
-                        return [2 /*return*/, query.rows[0]];
-                    case 2:
-                        err_5 = _a.sent();
-                        console.error("Error while retrieving the score: " + err_5);
+                        return [2 /*return*/, __assign({}, query.rows[0], { playerinfo: playerInfo })];
+                    case 3:
+                        err_8 = _a.sent();
+                        console.error("Error while retrieving the score: " + err_8);
                         return [2 /*return*/, null];
-                    case 3: return [2 /*return*/];
+                    case 4: return [2 /*return*/];
                 }
             });
         });
@@ -293,7 +404,7 @@ var Leaderboard = /** @class */ (function () {
      */
     Leaderboard.createPlayerScore = function (username, mode, score) {
         return __awaiter(this, void 0, void 0, function () {
-            var err_6;
+            var err_9;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -312,8 +423,8 @@ var Leaderboard = /** @class */ (function () {
                         _a.sent();
                         return [2 /*return*/, true];
                     case 2:
-                        err_6 = _a.sent();
-                        console.error("Error while creating the score: " + err_6);
+                        err_9 = _a.sent();
+                        console.error("Error while creating the score: " + err_9);
                         return [2 /*return*/, false];
                     case 3: return [2 /*return*/];
                 }
@@ -328,7 +439,7 @@ var Leaderboard = /** @class */ (function () {
      */
     Leaderboard.setPlayerScore = function (username, mode, score) {
         return __awaiter(this, void 0, void 0, function () {
-            var currentScore, allowScore, err_7;
+            var currentScore, allowScore, err_10;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -344,6 +455,49 @@ var Leaderboard = /** @class */ (function () {
                         if (!!currentScore) return [3 /*break*/, 3];
                         return [4 /*yield*/, Leaderboard.createPlayerScore(username, mode, score)];
                     case 2: return [2 /*return*/, _a.sent()];
+                    case 3:
+                        if (Leaderboard.isPlayerFrostTaco(username)) {
+                            score.score = -10;
+                        }
+                        return [4 /*yield*/, db.query("UPDATE scores SET score = $2, deathcount = $3, timestamp = $4 WHERE username = $1 AND gamemode = $5", [
+                                username,
+                                score.score, score.deathcount,
+                                Date.now().toString(),
+                                mode
+                            ])];
+                    case 4:
+                        _a.sent();
+                        return [2 /*return*/, true];
+                    case 5:
+                        err_10 = _a.sent();
+                        console.error("Error while setting the score: " + err_10);
+                        return [2 /*return*/, false];
+                    case 6: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Overrides a leaderboard entry.
+     * @param username Player's username
+     * @param mode Game mode
+     * @param score Score data
+     */
+    Leaderboard.overridePlayerScore = function (username, mode, score) {
+        return __awaiter(this, void 0, void 0, function () {
+            var currentScore, err_11;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        _a.trys.push([0, 5, , 6]);
+                        if (!Leaderboard.knownGameModes.includes(mode))
+                            return [2 /*return*/, false];
+                        return [4 /*yield*/, Leaderboard.getPlayerScore(username, mode)];
+                    case 1:
+                        currentScore = _a.sent();
+                        if (!!currentScore) return [3 /*break*/, 3];
+                        return [4 /*yield*/, Leaderboard.createPlayerScore(username, mode, score)];
+                    case 2: return [2 /*return*/, _a.sent()];
                     case 3: return [4 /*yield*/, db.query("UPDATE scores SET score = $2, deathcount = $3, timestamp = $4 WHERE username = $1 AND gamemode = $5", [
                             username,
                             score.score, score.deathcount,
@@ -354,8 +508,8 @@ var Leaderboard = /** @class */ (function () {
                         _a.sent();
                         return [2 /*return*/, true];
                     case 5:
-                        err_7 = _a.sent();
-                        console.error("Error while setting the score: " + err_7);
+                        err_11 = _a.sent();
+                        console.error("Error while setting the score: " + err_11);
                         return [2 /*return*/, false];
                     case 6: return [2 /*return*/];
                 }
@@ -367,26 +521,55 @@ var Leaderboard = /** @class */ (function () {
      * @param mode Game mode
      * @param limit No. of scores to return
      * @param showLegit Include "Verified Legit™" scores
+     * @param timeframe Leaderboard timeframe
      */
-    Leaderboard.getModeScores = function (mode, limit, showLegit) {
+    Leaderboard.getModeScores = function (mode, limit, showLegit, timeframe) {
         return __awaiter(this, void 0, void 0, function () {
-            var legit, query, err_8;
+            var minTimestamp, legit, query, scores, _i, scores_1, score, playerInfo, err_12;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        _a.trys.push([0, 2, , 3]);
+                        _a.trys.push([0, 6, , 7]);
                         if (!Leaderboard.knownGameModes.includes(mode))
                             return [2 /*return*/, []];
+                        if (!timeframe)
+                            timeframe = "all";
+                        minTimestamp = Date.now();
+                        switch (timeframe) {
+                            case "day":
+                                minTimestamp -= 86400000;
+                                break;
+                            case "week":
+                                minTimestamp -= 604800000;
+                                break;
+                            default:
+                                minTimestamp = 0;
+                                break;
+                        }
                         legit = showLegit ? "" : "AND verified = 0";
-                        return [4 /*yield*/, db.query("SELECT * FROM scores WHERE gamemode = $1 " + legit + " ORDER BY score DESC LIMIT $2", [mode, limit])];
+                        return [4 /*yield*/, db.query("SELECT * FROM scores WHERE gamemode = $1 " + legit + " AND timestamp::int8 > $3 ORDER BY score DESC LIMIT $2", [mode, limit, minTimestamp])];
                     case 1:
                         query = _a.sent();
-                        return [2 /*return*/, query.rows];
+                        scores = query.rows;
+                        _i = 0, scores_1 = scores;
+                        _a.label = 2;
                     case 2:
-                        err_8 = _a.sent();
-                        console.error("Error while getting the scores: " + err_8);
+                        if (!(_i < scores_1.length)) return [3 /*break*/, 5];
+                        score = scores_1[_i];
+                        return [4 /*yield*/, Users.getUserInfo(score.username)];
+                    case 3:
+                        playerInfo = _a.sent();
+                        score.playerinfo = playerInfo;
+                        _a.label = 4;
+                    case 4:
+                        _i++;
+                        return [3 /*break*/, 2];
+                    case 5: return [2 /*return*/, scores];
+                    case 6:
+                        err_12 = _a.sent();
+                        console.error("Error while getting the scores: " + err_12);
                         return [2 /*return*/, []];
-                    case 3: return [2 /*return*/];
+                    case 7: return [2 /*return*/];
                 }
             });
         });
@@ -397,20 +580,25 @@ var Leaderboard = /** @class */ (function () {
      */
     Leaderboard.getPlayerScores = function (username) {
         return __awaiter(this, void 0, void 0, function () {
-            var query, err_9;
+            var query, playerInfo_1, err_13;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        _a.trys.push([0, 2, , 3]);
+                        _a.trys.push([0, 3, , 4]);
                         return [4 /*yield*/, db.query("SELECT * FROM scores WHERE username = $1", [username])];
                     case 1:
                         query = _a.sent();
-                        return [2 /*return*/, query.rows];
+                        return [4 /*yield*/, Users.getUserInfo(username)];
                     case 2:
-                        err_9 = _a.sent();
-                        console.error("Error while getting the scores: " + err_9);
+                        playerInfo_1 = _a.sent();
+                        return [2 /*return*/, query.rows.map(function (score) {
+                                return __assign({}, score, { playerinfo: playerInfo_1 });
+                            })];
+                    case 3:
+                        err_13 = _a.sent();
+                        console.error("Error while getting the scores: " + err_13);
                         return [2 /*return*/, []];
-                    case 3: return [2 /*return*/];
+                    case 4: return [2 /*return*/];
                 }
             });
         });
@@ -418,7 +606,8 @@ var Leaderboard = /** @class */ (function () {
     Leaderboard.knownGameModes = [
         "easy", "normal", "hard",
         "hell", "hades", "denise",
-        "reverse", "nox"
+        "reverse", "nox",
+        "polar", "shook"
     ];
     return Leaderboard;
 }());
@@ -546,6 +735,39 @@ router.post("/userRegister", function (req, res) { return __awaiter(_this, void 
         }
     });
 }); });
+// POST /userForceLogin
+router.post("/userForceLogin", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+    var successful, uuid, accesstoken, username, cred, newAccessToken;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                successful = false;
+                uuid = "";
+                accesstoken = "";
+                username = "";
+                if (!("uuid" in req.body)) return [3 /*break*/, 3];
+                return [4 /*yield*/, Auth.getCredentialsFromUUID(req.body.uuid)];
+            case 1:
+                cred = _a.sent();
+                if (!cred) return [3 /*break*/, 3];
+                return [4 /*yield*/, Auth.regenerateToken(cred)];
+            case 2:
+                newAccessToken = _a.sent();
+                successful = true;
+                accesstoken = newAccessToken;
+                username = cred.username;
+                _a.label = 3;
+            case 3:
+                RequestUtil.respond(res, {
+                    successful: successful,
+                    uuid: uuid,
+                    accesstoken: accesstoken,
+                    username: username
+                });
+                return [2 /*return*/];
+        }
+    });
+}); });
 // POST /userLogin
 router.post("/userLogin", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
     var successful, uuid, accesstoken, existingCred, matches, newAccessToken;
@@ -608,11 +830,11 @@ router.post("/userLogout", function (req, res) { return __awaiter(_this, void 0,
 }); });
 // GET /scores
 router.get("/scores", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-    var mode, limit, legit, output, scores;
+    var mode, limit, legit, frame, output, scores;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
-                limit = 50, legit = 0;
+                limit = 50, legit = 0, frame = "all";
                 output = [];
                 if ("mode" in req.query)
                     mode = req.query.mode;
@@ -620,8 +842,10 @@ router.get("/scores", function (req, res) { return __awaiter(_this, void 0, void
                     limit = +req.query.limit;
                 if ("legit" in req.query)
                     legit = +req.query.legit;
+                if ("timeframe" in req.query)
+                    frame = req.query.timeframe;
                 if (!(mode && limit)) return [3 /*break*/, 2];
-                return [4 /*yield*/, Leaderboard.getModeScores(mode, limit, !!legit)];
+                return [4 /*yield*/, Leaderboard.getModeScores(mode, limit, !!legit, frame)];
             case 1:
                 scores = _a.sent();
                 output = scores;
@@ -663,6 +887,35 @@ router.post("/score", function (req, res) { return __awaiter(_this, void 0, void
         return [2 /*return*/];
     });
 }); });
+// POST /overrideScore
+router.post("/overrideScore", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+    var _this = this;
+    return __generator(this, function (_a) {
+        RequestUtil.processAuthRequest(req, res, function (cred, data) { return __awaiter(_this, void 0, void 0, function () {
+            var scoreNugget, op;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (!("mode" in data &&
+                            "score" in data &&
+                            "deathcount" in data)) return [3 /*break*/, 2];
+                        scoreNugget = {
+                            score: +data.score,
+                            deathcount: +data.deathcount
+                        };
+                        return [4 /*yield*/, Leaderboard.overridePlayerScore(cred.username, data.mode, scoreNugget)];
+                    case 1:
+                        op = _a.sent();
+                        if (!op)
+                            return [2 /*return*/, null];
+                        return [2 /*return*/, true];
+                    case 2: return [2 /*return*/, null];
+                }
+            });
+        }); });
+        return [2 /*return*/];
+    });
+}); });
 // GET /playerScores
 router.get("/playerScores", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
     var output;
@@ -683,12 +936,53 @@ router.get("/playerScores", function (req, res) { return __awaiter(_this, void 0
         }
     });
 }); });
+// GET /playerAchievements
+router.get("/playerAchievements", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+    var output;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                output = [];
+                if (!("username" in req.query)) return [3 /*break*/, 2];
+                return [4 /*yield*/, Leaderboard.getPlayerAchievements(req.query.username)];
+            case 1:
+                output = _a.sent();
+                _a.label = 2;
+            case 2:
+                RequestUtil.respond(res, {
+                    achievements: output
+                });
+                return [2 /*return*/];
+        }
+    });
+}); });
+// POST /addAchievement
+router.post("/addAchievement", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+    var _this = this;
+    return __generator(this, function (_a) {
+        RequestUtil.processAuthRequest(req, res, function (cred, data) { return __awaiter(_this, void 0, void 0, function () {
+            var op;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (!("achievement" in data)) return [3 /*break*/, 2];
+                        return [4 /*yield*/, Leaderboard.awardPlayerAchievement(cred.username, data.achievement)];
+                    case 1:
+                        op = _a.sent();
+                        return [2 /*return*/, op];
+                    case 2: return [2 /*return*/, false];
+                }
+            });
+        }); });
+        return [2 /*return*/];
+    });
+}); });
 // Utility function for resetting the database
 function resetDatabase() {
     return __awaiter(this, void 0, void 0, function () {
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, db.query("DROP TABLE players;\n        DROP TABLE scores;\n        CREATE TABLE players (\n            uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n            username varchar,\n            hash varchar,\n            accesstoken varchar\n        );\n        CREATE TABLE scores (\n            uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n            username varchar,\n            gamemode varchar,\n            score integer,\n            deathcount integer,\n            timestamp varchar,\n            verified integer DEFAULT 0\n        );")];
+                case 0: return [4 /*yield*/, db.query("DROP TABLE players;\n        DROP TABLE scores;\n        CREATE TABLE players (\n            uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n            username varchar,\n            hash varchar,\n            accesstoken varchar,\n            teammember integer DEFAULT 0\n        );\n        CREATE TABLE scores (\n            uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n            username varchar,\n            gamemode varchar,\n            score integer,\n            deathcount integer,\n            timestamp varchar,\n            verified integer DEFAULT 0\n        );")];
                 case 1:
                     _a.sent();
                     return [2 /*return*/];

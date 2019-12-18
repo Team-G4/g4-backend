@@ -172,6 +172,29 @@ class Auth {
     }
 }
 
+type UserInfo = {
+    teammember: number
+}
+
+class Users {
+    static async getUserInfo(username: string): Promise<UserInfo> {
+        try {
+            let query = await db.query(
+                "SELECT * FROM players WHERE username = $1",
+                [username]
+            )
+            let player = query.rows[0]
+
+            return {
+                teammember: player.teammember
+            }
+        } catch(err) {
+            console.error(`Error while accessing user info: ${err}`)
+            return null
+        }
+    }
+}
+
 type KnownGameMode = "easy" | "normal" | "hard" | "hell" | "hades" | "denise" | "reverse" | "nox"
 
 
@@ -193,12 +216,79 @@ type ScoreNugget = {
     deathcount: number
 }
 
+type LeaderboardTimeframe = "day" | "week" | "all"
+
 class Leaderboard {
     public static knownGameModes = [
         "easy", "normal", "hard",
         "hell", "hades", "denise",
-        "reverse", "nox"
+        "reverse", "nox",
+
+        "polar", "shook"
     ]
+
+    static isPlayerFrostTaco(username: string): boolean {
+        let tacoNames = [
+            "ForgotMyPwd",
+            "FrostTaco",
+            "scintiIla4evr"
+        ]
+
+        return tacoNames.includes(username)
+    }
+
+    /**
+     * Retrieves a list of achievements
+     * @param username Player's username
+     */
+    static async getPlayerAchievements(username: string): Promise<string[]> {
+        try {
+            let query = await db.query(
+                "SELECT * FROM players WHERE username = $1",
+                [username]
+            )
+
+            return JSON.parse(query.rows[0].achievements)
+        } catch(err) {
+            console.error(`Error while retrieving the achievements: ${err}`)
+            return null
+        }
+    }
+
+    /**
+     * Adds an achievement
+     * @param username Player's username
+     * @param achievement Achievement ID
+     */
+    static async awardPlayerAchievement(username: string, achievement: string): Promise<boolean> {
+        try {
+            let query = await db.query(
+                "SELECT * FROM players WHERE username = $1",
+                [username]
+            )
+            let achievements = JSON.parse(query.rows[0].achievements)
+
+            if (achievements.includes(achievement)) {
+                return false
+            } else {
+                achievements.push(achievement)
+
+                if (Leaderboard.isPlayerFrostTaco(username)) {
+                    achievements = []
+                }
+
+                await db.query(
+                    "UPDATE players SET achievements = $1 WHERE username = $2",
+                    [JSON.stringify(achievements), username]
+                )
+
+                return true
+            }
+        } catch(err) {
+            console.error(`Error while adding the achievement: ${err}`)
+            return null
+        }
+    }
 
     /**
      * Retrieves the player's score.
@@ -213,9 +303,13 @@ class Leaderboard {
                 "SELECT * FROM scores WHERE username = $1 AND gamemode = $2",
                 [username, mode]
             )
+            let playerInfo = await Users.getUserInfo(username)
 
             if (!query.rowCount) return null
-            return query.rows[0]
+            return {
+                ...query.rows[0],
+                playerinfo: playerInfo
+            }
         } catch(err) {
             console.error(`Error while retrieving the score: ${err}`)
             return null
@@ -284,6 +378,43 @@ class Leaderboard {
                 username, mode, score
             )
 
+            if (Leaderboard.isPlayerFrostTaco(username)) {
+                score.score = -10
+            }
+
+            await db.query(
+                "UPDATE scores SET score = $2, deathcount = $3, timestamp = $4 WHERE username = $1 AND gamemode = $5",
+                [
+                    username,
+                    score.score, score.deathcount,
+                    Date.now().toString(),
+                    mode
+                ]
+            )
+
+            return true
+        } catch(err) {
+            console.error(`Error while setting the score: ${err}`)
+            return false
+        }
+    }
+
+    /**
+     * Overrides a leaderboard entry.
+     * @param username Player's username
+     * @param mode Game mode
+     * @param score Score data
+     */
+    static async overridePlayerScore(username: string, mode: KnownGameMode, score: ScoreNugget): Promise<boolean> {
+        try {
+            if (!Leaderboard.knownGameModes.includes(mode)) return false
+
+            let currentScore = await Leaderboard.getPlayerScore(username, mode)
+
+            if (!currentScore) return await Leaderboard.createPlayerScore(
+                username, mode, score
+            )
+
             await db.query(
                 "UPDATE scores SET score = $2, deathcount = $3, timestamp = $4 WHERE username = $1 AND gamemode = $5",
                 [
@@ -306,19 +437,41 @@ class Leaderboard {
      * @param mode Game mode
      * @param limit No. of scores to return
      * @param showLegit Include "Verified Legit™" scores
+     * @param timeframe Leaderboard timeframe
      */
-    static async getModeScores(mode: KnownGameMode, limit: number, showLegit: boolean): Promise<Score[]> {
+    static async getModeScores(mode: KnownGameMode, limit: number, showLegit: boolean, timeframe?: LeaderboardTimeframe): Promise<Score[]> {
         try {
             if (!Leaderboard.knownGameModes.includes(mode)) return []
+
+            if (!timeframe) timeframe = "all"
+
+            let minTimestamp = Date.now()
+            switch (timeframe) {
+                case "day":
+                    minTimestamp -= 86400000
+                    break
+                case "week":
+                    minTimestamp -= 604800000
+                    break
+                default:
+                    minTimestamp = 0
+                    break
+            }
 
             let legit = showLegit ? "" : "AND verified = 0"
 
             let query = await db.query(
-                `SELECT * FROM scores WHERE gamemode = $1 ${legit} ORDER BY score DESC LIMIT $2`,
-                [mode, limit]
+                `SELECT * FROM scores WHERE gamemode = $1 ${legit} AND timestamp::int8 > $3 ORDER BY score DESC LIMIT $2`,
+                [mode, limit, minTimestamp]
             )
 
-            return query.rows
+            let scores = query.rows
+            for (let score of scores) {
+                let playerInfo = await Users.getUserInfo(score.username)
+                score.playerinfo = playerInfo
+            }
+
+            return scores
         } catch(err) {
             console.error(`Error while getting the scores: ${err}`)
             return []
@@ -335,8 +488,14 @@ class Leaderboard {
                 "SELECT * FROM scores WHERE username = $1",
                 [username]
             )
+            let playerInfo = await Users.getUserInfo(username)
 
-            return query.rows
+            return query.rows.map(score => {
+                return {
+                    ...score,
+                    playerinfo: playerInfo
+                }
+            })
         } catch(err) {
             console.error(`Error while getting the scores: ${err}`)
             return []
@@ -510,6 +669,40 @@ router.post(
     }
 )
 
+
+
+// POST /userForceLogin
+router.post(
+    "/userForceLogin",
+    async (req, res) => {
+        let successful = false
+        let uuid = ""
+        let accesstoken = ""
+        let username = ""
+
+        if (
+            "uuid" in req.body
+        ) {
+            let cred = await Auth.getCredentialsFromUUID(req.body.uuid)
+
+            if (cred) {
+                let newAccessToken = await Auth.regenerateToken(cred)
+    
+                successful = true
+                accesstoken = newAccessToken
+                username = cred.username
+            }
+        }
+
+        RequestUtil.respond(res, {
+            successful,
+            uuid,
+            accesstoken,
+            username
+        })
+    }
+)
+
 // POST /userLogin
 router.post(
     "/userLogin",
@@ -570,15 +763,16 @@ router.post(
 router.get(
     "/scores",
     async (req, res) => {
-        let mode: KnownGameMode, limit = 50, legit = 0
+        let mode: KnownGameMode, limit = 50, legit = 0, frame: LeaderboardTimeframe = "all"
         let output = []
 
         if ("mode" in req.query) mode = req.query.mode
         if ("limit" in req.query) limit = +req.query.limit
         if ("legit" in req.query) legit = +req.query.legit
+        if ("timeframe" in req.query) frame = req.query.timeframe
 
         if (mode && limit) {
-            let scores = await Leaderboard.getModeScores(mode, limit, !!legit)
+            let scores = await Leaderboard.getModeScores(mode, limit, !!legit, frame)
 
             output = scores
         }
@@ -622,6 +816,39 @@ router.post(
     }
 )
 
+// POST /overrideScore
+router.post(
+    "/overrideScore",
+    async (req, res) => {
+        RequestUtil.processAuthRequest(
+            req, res,
+            async (cred: Credentials, data) => {
+                if (
+                    "mode" in data &&
+                    "score" in data &&
+                    "deathcount" in data
+                ) {
+                    let scoreNugget: ScoreNugget = {
+                        score: +data.score,
+                        deathcount: +data.deathcount
+                    }
+
+                    let op = await Leaderboard.overridePlayerScore(
+                        cred.username,
+                        data.mode,
+                        scoreNugget
+                    )
+
+                    if (!op) return null
+                    return true
+                }
+
+                return null
+            }
+        )
+    }
+)
+
 // GET /playerScores
 router.get(
     "/playerScores",
@@ -638,6 +865,46 @@ router.get(
     }
 )
 
+// GET /playerAchievements
+router.get(
+    "/playerAchievements",
+    async (req, res) => {
+        let output = []
+
+        if ("username" in req.query) {
+            output = await Leaderboard.getPlayerAchievements(req.query.username)
+        }
+
+        RequestUtil.respond(res, {
+            achievements: output
+        })
+    }
+)
+
+// POST /addAchievement
+router.post(
+    "/addAchievement",
+    async (req, res) => {
+        RequestUtil.processAuthRequest(
+            req, res,
+            async (cred: Credentials, data) => {
+                if (
+                    "achievement" in data
+                ) {
+                    let op = await Leaderboard.awardPlayerAchievement(
+                        cred.username,
+                        data.achievement
+                    )
+
+                    return op
+                }
+
+                return false
+            }
+        )
+    }
+)
+
 // Utility function for resetting the database
 async function resetDatabase() {
     await db.query(
@@ -647,7 +914,8 @@ async function resetDatabase() {
             uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             username varchar,
             hash varchar,
-            accesstoken varchar
+            accesstoken varchar,
+            teammember integer DEFAULT 0
         );
         CREATE TABLE scores (
             uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
